@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EasyEDA AutoSave</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0d0f11;
+      --surface: #161a1e;
+      --surface-raised: #1e2329;
+      --border: #2a3040;
+      --border-bright: #3d4a5c;
+      --accent: #00d4aa;
+      --accent-dim: rgba(0, 212, 170, 0.12);
+      --accent-glow: rgba(0, 212, 170, 0.25);
+      --warn: #f5a623;
+      --danger: #e05252;
+      --success: #52c97c;
+      --text-primary: #e8ecf0;
+      --text-secondary: #7a8a9a;
+      --text-muted: #4a5568;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'IBM Plex Sans', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 300px;
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--sans);
+      font-size: 13px;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .header-left { display: flex; align-items: center; gap: 9px; }
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .logo-icon svg { width: 14px; height: 14px; }
+    .app-name {
+      font-family: var(--mono); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .app-sub { font-size: 10px; color: var(--text-muted); font-family: var(--mono); margin-top: 1px; }
+
+    /* ── Status Badge ── */
+    .status-badge {
+      display: flex; align-items: center; gap: 5px;
+      padding: 4px 8px; border-radius: 4px;
+      font-family: var(--mono); font-size: 10px; font-weight: 500;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      border: 1px solid transparent; transition: all 0.2s;
+    }
+    .status-badge.active  { background: rgba(82,201,124,0.1); border-color: rgba(82,201,124,0.3); color: var(--success); }
+    .status-badge.inactive{ background: rgba(74,85,104,0.2); border-color: var(--border); color: var(--text-muted); }
+    .status-badge.no-editor{ background: rgba(240,166,35,0.1); border-color: rgba(240,166,35,0.3); color: var(--warn); }
+    .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+    .status-badge.active .dot { animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:0.4; transform:scale(0.8); }
+    }
+
+    /* ── Body ── */
+    .body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── Toggle Row ── */
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px;
+    }
+    .toggle-label { display: flex; flex-direction: column; gap: 2px; }
+    .toggle-label-text { font-weight: 500; font-size: 13px; }
+    .toggle-label-sub { font-size: 11px; color: var(--text-secondary); font-family: var(--mono); }
+    .toggle-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: var(--surface-raised); border: 1px solid var(--border-bright);
+      border-radius: 11px; cursor: pointer; transition: all 0.25s;
+    }
+    .toggle-track::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--text-muted); transition: all 0.25s;
+    }
+    input:checked + .toggle-track { background: var(--accent-dim); border-color: var(--accent); }
+    input:checked + .toggle-track::after {
+      background: var(--accent); transform: translateX(18px);
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    /* ── Interval Control ── */
+    .interval-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .interval-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .interval-title {
+      font-family: var(--mono); font-size: 9px; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-muted);
+    }
+    .interval-current {
+      font-family: var(--mono); font-size: 11px; font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* Preset chips */
+    .preset-chips {
+      display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .chip {
+      font-family: var(--mono); font-size: 10px; font-weight: 500;
+      padding: 4px 9px; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--border-bright);
+      background: var(--surface-raised); color: var(--text-secondary);
+      transition: all 0.15s; user-select: none;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+    .chip.active  { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+    /* Custom input row */
+    .custom-row {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .custom-label {
+      font-family: var(--mono); font-size: 10px; color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .custom-input-wrap {
+      flex: 1; position: relative; display: flex; align-items: center;
+    }
+    .custom-input {
+      width: 100%;
+      background: var(--surface-raised);
+      border: 1px solid var(--border-bright);
+      border-radius: 5px;
+      color: var(--text-primary);
+      font-family: var(--mono); font-size: 12px;
+      padding: 5px 32px 5px 9px;
+      outline: none; transition: border-color 0.15s;
+      -moz-appearance: textfield;
+    }
+    .custom-input::-webkit-inner-spin-button,
+    .custom-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .custom-input:focus { border-color: var(--accent); }
+    .custom-input.error { border-color: var(--danger); }
+    .input-unit {
+      position: absolute; right: 8px;
+      font-family: var(--mono); font-size: 10px; color: var(--text-muted);
+      pointer-events: none;
+    }
+    .apply-btn {
+      background: var(--accent); color: #000;
+      border: none; border-radius: 5px;
+      font-family: var(--mono); font-size: 10px; font-weight: 600;
+      padding: 6px 10px; cursor: pointer; transition: all 0.15s;
+      white-space: nowrap; letter-spacing: 0.03em;
+    }
+    .apply-btn:hover { background: #00efc0; box-shadow: 0 0 8px var(--accent-glow); }
+    .apply-btn:active { transform: scale(0.96); }
+    .error-msg {
+      font-family: var(--mono); font-size: 10px; color: var(--danger);
+      margin-top: 5px; min-height: 14px; transition: opacity 0.2s;
+    }
+
+    /* ── Stats Grid ── */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .stat-label { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .stat-value { font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--text-primary); line-height: 1; }
+    .stat-value.accent { color: var(--accent); }
+    .stat-sub { font-family: var(--mono); font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
+
+    /* ── Last Save Row ── */
+    .last-save-row {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .last-save-label { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .last-save-value { font-family: var(--mono); font-size: 11px; color: var(--text-secondary); }
+    .save-result-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .save-result-dot.success { background: var(--success); }
+    .save-result-dot.failure { background: var(--danger); }
+    .save-result-dot.unknown { background: var(--text-muted); }
+
+    /* ── Buttons ── */
+    .btn-row { display: flex; gap: 8px; }
+    .btn {
+      flex: 1; padding: 9px 12px; border-radius: 7px;
+      font-family: var(--mono); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      cursor: pointer; border: 1px solid transparent;
+      transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #000; border-color: var(--accent); }
+    .btn-primary:hover:not(:disabled) { background: #00efc0; box-shadow: 0 0 12px var(--accent-glow); }
+    .btn-primary:active:not(:disabled) { transform: scale(0.97); }
+    .btn-secondary { background: var(--surface); color: var(--text-secondary); border-color: var(--border-bright); }
+    .btn-secondary:hover:not(:disabled) { background: var(--surface-raised); color: var(--text-primary); }
+
+    /* ── Footer ── */
+    .footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px 10px; border-top: 1px solid var(--border);
+    }
+    .footer-text { font-size: 10px; color: var(--text-muted); font-family: var(--mono); }
+    .saving-flash { opacity: 0; transition: opacity 0.2s; }
+    .saving-flash.visible { opacity: 1; }
+
+    /* ── No editor warning ── */
+    .no-editor-warn {
+      background: rgba(240,166,35,0.08); border: 1px solid rgba(240,166,35,0.25);
+      border-radius: 7px; padding: 9px 12px; font-size: 11px;
+      color: var(--warn); font-family: var(--mono); display: none;
+    }
+    .no-editor-warn.visible { display: block; }
+
+    /* Applied flash */
+    @keyframes applied {
+      0%   { background: var(--accent); color: #000; }
+      100% { background: var(--accent); color: #000; }
+    }
+    .apply-btn.applied { background: var(--success); color: #000; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-icon">
+        <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2 7h3l1.5-4L8 11l1.5-4H12" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="app-name">AutoSave</div>
+        <div class="app-sub">EasyEDA</div>
+      </div>
+    </div>
+    <div id="statusBadge" class="status-badge inactive">
+      <div class="dot"></div>
+      <span id="statusText">—</span>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- No editor warning -->
+    <div id="noEditorWarn" class="no-editor-warn">
+      No EasyEDA editor detected on this tab.
+    </div>
+
+    <!-- Toggle -->
+    <div class="toggle-row">
+      <div class="toggle-label">
+        <span class="toggle-label-text">Autosave</span>
+        <span class="toggle-label-sub" id="intervalLabel">every 10s</span>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="enableToggle" />
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <!-- Interval Control -->
+    <div class="interval-card">
+      <div class="interval-header">
+        <span class="interval-title">Save Interval</span>
+        <span class="interval-current" id="intervalCurrent">10s</span>
+      </div>
+
+      <!-- Preset chips -->
+      <div class="preset-chips" id="presetChips">
+        <div class="chip" data-secs="5">5s</div>
+        <div class="chip" data-secs="10">10s</div>
+        <div class="chip" data-secs="30">30s</div>
+        <div class="chip" data-secs="60">1m</div>
+        <div class="chip" data-secs="120">2m</div>
+        <div class="chip" data-secs="300">5m</div>
+      </div>
+
+      <!-- Custom input -->
+      <div class="custom-row">
+        <span class="custom-label">Custom</span>
+        <div class="custom-input-wrap">
+          <input type="number" id="customInput" class="custom-input"
+                 min="3" max="3600" placeholder="e.g. 45" />
+          <span class="input-unit">sec</span>
+        </div>
+        <button class="apply-btn" id="applyBtn">Apply</button>
+      </div>
+      <div class="error-msg" id="errorMsg"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total saves</div>
+        <div class="stat-value accent" id="totalSaves">0</div>
+        <div class="stat-sub">all time</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">This session</div>
+        <div class="stat-value" id="sessionSaves">0</div>
+        <div class="stat-sub">since load</div>
+      </div>
+    </div>
+
+    <!-- Last save -->
+    <div class="last-save-row">
+      <div>
+        <div class="last-save-label">Last save</div>
+        <div class="last-save-value" id="lastSaveTime">Never</div>
+      </div>
+      <div id="saveResultDot" class="save-result-dot unknown"></div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="btn-row">
+      <button class="btn btn-primary" id="saveNowBtn">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+          <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Save Now
+      </button>
+      <button class="btn btn-secondary" id="resetBtn">Reset</button>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span class="footer-text" id="editorTypeLabel">Detecting…</span>
+    <span class="footer-text saving-flash" id="savingFlash">Saving…</span>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
