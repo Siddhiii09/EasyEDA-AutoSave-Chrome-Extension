@@ -6,7 +6,7 @@ Chrome extension that automatically saves EasyEDA PCB & schematic projects at co
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue?style=for-the-badge&logo=googlechrome)
 ![Version](https://img.shields.io/badge/version-1.0.0-green?style=for-the-badge)
-![License](https://img.shields.io/badge/license-MIT-orange?style=for-the-badge)
+
 
 ---
 
